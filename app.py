@@ -99,7 +99,15 @@ question = st.text_input(
 
 if question:
 
+    docs = retriever.invoke(question)
+
+    st.write("### Retrieved Documents")
+
+    for i, doc in enumerate(docs):
+        st.write(f"Document {i+1}")
+        st.write(doc.page_content[:1000])
+
     answer = rag_chain.invoke(question)
 
-    st.markdown("### Answer")
+    st.write("### Answer")
     st.write(answer)
