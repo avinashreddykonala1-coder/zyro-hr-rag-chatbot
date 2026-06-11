@@ -57,12 +57,14 @@ def build_rag():
         temperature=0.1
     )
 
-    prompt = ChatPromptTemplate.from_template("""
+prompt = ChatPromptTemplate.from_template("""
 You are an HR Help Desk assistant for Zyro Dynamics.
 
-Answer ONLY from the provided context.
+Use ONLY the provided context to answer.
 
-If the answer is not present in the context say:
+If the answer exists anywhere in the context, answer it directly.
+
+If the answer does not exist in the context, respond exactly:
 
 I could not find this information in the Zyro Dynamics HR policy documents.
 
@@ -74,7 +76,6 @@ Question:
 
 Answer:
 """)
-
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
@@ -99,15 +100,5 @@ question = st.text_input(
 
 if question:
 
-    docs = retriever.invoke(question)
-
-    st.write("### Retrieved Documents")
-
-    for i, doc in enumerate(docs):
-        st.write(f"Document {i+1}")
-        st.write(doc.page_content[:1000])
-
-    answer = rag_chain.invoke(question)
-
-    st.write("### Answer")
-    st.write(answer)
+    nswer = rag_chain.invoke(question)
+st.write(answer)
