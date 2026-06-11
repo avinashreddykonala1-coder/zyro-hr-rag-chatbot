@@ -6,86 +6,68 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_groq import ChatGroq
-
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-
-# --------------------------------------------------
-# PAGE CONFIG
-# --------------------------------------------------
+from langchain_core.runnables import RunnablePassthrough
 
 st.set_page_config(
-    page_title="Zyro HR Help Desk",
-    page_icon="🤖"
+page_title="Zyro Dynamics HR Help Desk",
+page_icon="🤖",
+layout="wide"
 )
 
 st.title("🤖 Zyro Dynamics HR Help Desk")
+st.caption("Ask questions about Zyro Dynamics HR policies")
 
-st.write(
-    "Ask questions about Leave Policy, WFH Policy, Compensation, Benefits, Travel, Onboarding and other HR topics."
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+
+REFUSAL_MESSAGE = (
+"I could not find this information in the Zyro Dynamics HR policy documents."
 )
-
-# --------------------------------------------------
-# API KEY
-# --------------------------------------------------
-
-os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
-
-# --------------------------------------------------
-# BUILD RAG
-# --------------------------------------------------
 
 @st.cache_resource
 def build_rag():
 
-    # Load PDFs
-    loader = PyPDFDirectoryLoader("data")
-    documents = loader.load()
+```
+loader = PyPDFDirectoryLoader("data")
+docs = loader.load()
 
-    # Split documents
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=700,
-        chunk_overlap=150
-    )
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200
+)
 
-    chunks = splitter.split_documents(documents)
+chunks = splitter.split_documents(docs)
 
-    # Embeddings
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
 
-    # Vector DB
-    vectorstore = FAISS.from_documents(
-        chunks,
-        embeddings
-    )
+vectorstore = FAISS.from_documents(
+    chunks,
+    embeddings
+)
 
-    # Retriever
-    retriever = vectorstore.as_retriever(
-        search_type="similarity",
-        search_kwargs={
-            "k": 10
-        }
-    )
+retriever = vectorstore.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 10}
+)
 
-    # LLM
-    llm = ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0
-    )
+llm = ChatGroq(
+    groq_api_key=GROQ_API_KEY,
+    model="llama-3.3-70b-versatile",
+    temperature=0
+)
 
-    # Prompt
-    prompt = ChatPromptTemplate.from_template(
-        """
-You are an HR Help Desk assistant for Zyro Dynamics.
+prompt = ChatPromptTemplate.from_template(
+    """
+```
+
+You are an HR assistant for Zyro Dynamics.
 
 Answer ONLY using the provided context.
 
-If the answer exists in the context, answer clearly and concisely.
-
-If the answer does not exist in the context, respond exactly:
+If the answer is not available in the context, respond exactly:
 
 I could not find this information in the Zyro Dynamics HR policy documents.
 
@@ -94,52 +76,69 @@ Context:
 
 Question:
 {question}
-
-Answer:
 """
-    )
-
-    def format_docs(docs):
-        return "\n\n".join(doc.page_content for doc in docs)
-
-    rag_chain = (
-        {
-            "context": retriever | format_docs,
-            "question": RunnablePassthrough()
-        }
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
-
-    return rag_chain
-
-
-rag_chain = build_rag()
-
-# --------------------------------------------------
-# CHAT UI
-# --------------------------------------------------
-
-question = st.text_input(
-    "Ask your HR question:"
 )
+
+```
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+rag_chain = (
+    {
+        "context": retriever | format_docs,
+        "question": RunnablePassthrough()
+    }
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+return retriever, rag_chain
+```
+
+retriever, rag_chain = build_rag()
+
+if "messages" not in st.session_state:
+st.session_state.messages = []
+
+for msg in st.session_state.messages:
+with st.chat_message(msg["role"]):
+st.markdown(msg["content"])
+
+question = st.chat_input("Ask an HR question...")
 
 if question:
 
-    with st.spinner("Searching HR policies..."):
+```
+st.session_state.messages.append(
+    {
+        "role": "user",
+        "content": question
+    }
+)
 
-        try:
-            answer = rag_chain.invoke(question)
+with st.chat_message("user"):
+    st.markdown(question)
 
-            if not answer or len(answer.strip()) == 0:
-                answer = (
-                    "I could not find this information in the "
-                    "Zyro Dynamics HR policy documents."
-                )
+docs = retriever.invoke(question)
 
-            st.markdown("### Answer")
-            st.write(answer)
+answer = rag_chain.invoke(question)
 
-        except Exception as e:
-            st.error(str(e))
+if not answer or not answer.strip():
+    answer = REFUSAL_MESSAGE
+
+with st.chat_message("assistant"):
+    st.markdown(answer)
+
+    with st.expander("View Sources"):
+        for i, doc in enumerate(docs[:5]):
+            st.markdown(f"### Source {i+1}")
+            st.write(doc.page_content[:1000])
+
+st.session_state.messages.append(
+    {
+        "role": "assistant",
+        "content": answer
+    }
+)
+```
