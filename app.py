@@ -1,6 +1,4 @@
-import os
 import streamlit as st
-
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -18,8 +16,6 @@ layout="wide"
 
 st.title("🤖 Zyro Dynamics HR Help Desk")
 st.caption("Ask questions about Zyro Dynamics HR policies")
-
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 
 REFUSAL_MESSAGE = (
 "I could not find this information in the Zyro Dynamics HR policy documents."
@@ -54,7 +50,7 @@ retriever = vectorstore.as_retriever(
 )
 
 llm = ChatGroq(
-    groq_api_key=GROQ_API_KEY,
+    groq_api_key=st.secrets["GROQ_API_KEY"],
     model="llama-3.3-70b-versatile",
     temperature=0
 )
