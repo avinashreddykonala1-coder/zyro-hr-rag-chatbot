@@ -10,21 +10,15 @@ from langchain_core.runnables import RunnablePassthrough
 
 st.set_page_config(
 page_title="Zyro Dynamics HR Help Desk",
-page_icon="🤖",
-layout="wide"
+page_icon="🤖"
 )
 
 st.title("🤖 Zyro Dynamics HR Help Desk")
-st.caption("Ask questions about Zyro Dynamics HR policies")
 
-REFUSAL_MESSAGE = (
-"I could not find this information in the Zyro Dynamics HR policy documents."
-)
+REFUSAL_MESSAGE = "I could not find this information in the Zyro Dynamics HR policy documents."
 
 @st.cache_resource
 def build_rag():
-
-```
 loader = PyPDFDirectoryLoader("data")
 docs = loader.load()
 
@@ -57,7 +51,7 @@ llm = ChatGroq(
 
 prompt = ChatPromptTemplate.from_template(
     """
-```
+
 
 You are an HR assistant for Zyro Dynamics.
 
@@ -75,7 +69,7 @@ Question:
 """
 )
 
-```
+
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
@@ -90,51 +84,18 @@ rag_chain = (
 )
 
 return retriever, rag_chain
-```
+
 
 retriever, rag_chain = build_rag()
 
-if "messages" not in st.session_state:
-st.session_state.messages = []
-
-for msg in st.session_state.messages:
-with st.chat_message(msg["role"]):
-st.markdown(msg["content"])
-
-question = st.chat_input("Ask an HR question...")
+question = st.text_input("Ask an HR question")
 
 if question:
-
-```
-st.session_state.messages.append(
-    {
-        "role": "user",
-        "content": question
-    }
-)
-
-with st.chat_message("user"):
-    st.markdown(question)
-
-docs = retriever.invoke(question)
-
 answer = rag_chain.invoke(question)
 
-if not answer or not answer.strip():
+
+if not answer.strip():
     answer = REFUSAL_MESSAGE
 
-with st.chat_message("assistant"):
-    st.markdown(answer)
+st.write(answer)
 
-    with st.expander("View Sources"):
-        for i, doc in enumerate(docs[:5]):
-            st.markdown(f"### Source {i+1}")
-            st.write(doc.page_content[:1000])
-
-st.session_state.messages.append(
-    {
-        "role": "assistant",
-        "content": answer
-    }
-)
-```
