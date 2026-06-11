@@ -79,7 +79,7 @@ def build_rag():
     # FIX: stronger model + more tokens for complete multi-part answers
     llm = ChatGroq(
         groq_api_key=st.secrets["GROQ_API_KEY"],
-        model="llama-3.1-8b-instant",   # was llama-3.1-8b-instant
+        model="llama-3.1-8b-instant",   # was llama-3.1-8b-instant 
         temperature=0,
         max_tokens=1024                     # was 512
     )
