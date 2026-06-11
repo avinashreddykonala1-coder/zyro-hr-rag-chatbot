@@ -91,7 +91,7 @@ retriever, rag_chain = build_rag()
 question = st.text_input("Ask an HR question")
 
 if question:
-answer = rag_chain.invoke(question)
+    answer = rag_chain.invoke(question)
 
 
 if not answer.strip():
