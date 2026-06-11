@@ -30,8 +30,8 @@ def build_rag():
     documents = loader.load()
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
+        chunk_size=700,
+        chunk_overlap=150
     )
 
     chunks = splitter.split_documents(documents)
@@ -46,10 +46,9 @@ def build_rag():
     )
 
     retriever = vectorstore.as_retriever(
-        search_type="mmr",
+        search_type="similarity",
         search_kwargs={
-            "k": 5,
-            "fetch_k": 30
+            "k": 10
         }
     )
 
