@@ -19,8 +19,8 @@ REFUSAL_MESSAGE = "I could not find this information in the Zyro Dynamics HR pol
 
 @st.cache_resource
 def build_rag():
-loader = PyPDFDirectoryLoader("data")
-docs = loader.load()
+    loader = PyPDFDirectoryLoader("data")
+    docs = loader.load()
 
 splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000,
