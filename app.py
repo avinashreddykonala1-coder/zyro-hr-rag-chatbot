@@ -28,13 +28,18 @@ HR_KEYWORDS = [
     "maternity", "paternity", "sick", "casual", "earned", "holiday",
     "overtime", "shift", "attendance", "payroll", "insurance", "pf",
     "gratuity", "bonus", "promotion", "transfer", "grievance", "disciplinary",
-    "zyro", "hr", "human resource", "joining", "offer", "contract"
+    "zyro", "acrux",          # FIX: questions use "Acrux Dynamics" = same company
+    "hr", "human resource", "joining", "offer", "contract",
+    "payday", "pay day", "credited", "health", "medical", "pip",
+    "annual", "eligible", "eligib"
 ]
 
 OUT_OF_SCOPE_RESPONSE = (
     "I'm sorry, I can only answer HR-related questions based on "
     "Zyro Dynamics policy documents."
 )
+
+REFUSAL_PHRASE = "I'm sorry, I can only answer HR-related questions"
 
 def is_hr_related(question: str) -> bool:
     q = question.lower()
@@ -43,45 +48,55 @@ def is_hr_related(question: str) -> bool:
 # ── Build RAG pipeline (cached so it only runs once) ─────────
 @st.cache_resource(show_spinner="Loading HR policy documents...")
 def build_rag():
-    # IMPROVED: smaller chunks for more precise retrieval
     loader = PyPDFDirectoryLoader("data")
     docs = loader.load()
 
+    # FIX: larger chunks preserve salary tables, CTC grade tables, WFH tables
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100
+        chunk_size=1000,       # was 500
+        chunk_overlap=200,     # was 100
+        separators=["\n\n", "\n", ".", " ", ""]
     )
     chunks = splitter.split_documents(docs)
 
+    # FIX: stronger embedding model for HR domain terms
     embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+        model_name="sentence-transformers/all-mpnet-base-v2"  # was all-MiniLM-L6-v2
     )
 
     vectorstore = FAISS.from_documents(chunks, embeddings)
 
-    # IMPROVED: MMR retrieval for diverse + relevant chunks
+    # FIX: wider retrieval net to catch sparse policy mentions
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 6, "fetch_k": 20, "lambda_mult": 0.7}
+        search_kwargs={
+            "k": 8,            # was 6
+            "fetch_k": 30,     # was 20
+            "lambda_mult": 0.6
+        }
     )
 
+    # FIX: stronger model + more tokens for complete multi-part answers
     llm = ChatGroq(
         groq_api_key=st.secrets["GROQ_API_KEY"],
-        model="llama-3.1-8b-instant",
+        model="llama-3.3-70b-versatile",   # was llama-3.1-8b-instant
         temperature=0,
-        max_tokens=512
+        max_tokens=1024                     # was 512
     )
 
-    # IMPROVED: strict grounded prompt
+    # FIX: prompt explicitly handles Acrux = Zyro alias + table extraction
     prompt = ChatPromptTemplate.from_template("""
 You are a precise HR policy assistant for Zyro Dynamics Pvt. Ltd.
 
+IMPORTANT: Some questions may refer to the company as "Acrux Dynamics" — treat this as the same company as "Zyro Dynamics" and answer using the Zyro Dynamics policy documents.
+
 Your rules:
 1. Answer ONLY using the context provided below from the HR policy documents.
-2. Be specific — include exact numbers, days, weeks, percentages, and policy names when they appear in context.
-3. Do NOT add any information not present in the context.
-4. Do NOT make assumptions or guess.
-5. If the answer is not found in the context, respond with EXACTLY:
+2. Be specific — include exact numbers, days, weeks, percentages, dates, grade levels, and policy names when they appear in the context.
+3. If a table or list is present in the context that answers the question, reproduce ALL relevant rows/items from it.
+4. Do NOT add any information not present in the context.
+5. Do NOT say information is "not explicitly mentioned" if it IS present — read carefully.
+6. If the question is genuinely not about Zyro Dynamics HR policies, or the answer is truly not in the context, respond with EXACTLY:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
 
 Context:
@@ -141,6 +156,15 @@ if question := st.chat_input("Ask an HR question..."):
                     answer = OUT_OF_SCOPE_RESPONSE
                 else:
                     answer = rag_chain.invoke(question)
+
+                    # FIX: retry if LLM refused on a valid HR question (Acrux alias edge case)
+                    if REFUSAL_PHRASE in answer and is_hr_related(question):
+                        retry_question = (
+                            f"{question}\n\n"
+                            "(Note: 'Acrux Dynamics' and 'Zyro Dynamics' are the same company. "
+                            "Please look carefully through the entire context for the answer.)"
+                        )
+                        answer = rag_chain.invoke(retry_question)
 
                     # Show source documents
                     if retrieved:
