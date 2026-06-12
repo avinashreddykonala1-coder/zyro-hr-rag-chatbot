@@ -19,7 +19,7 @@ st.set_page_config(
 st.title("🤖 Zyro Dynamics HR Help Desk")
 st.caption("Ask any HR policy question. Powered by RAG + Groq.")
 
-# Pre-computation Guardrails
+# Pre-computation Guardrails (Optimized to include stock options and ESOPs as valid HR topics)
 HR_KEYWORDS = [
     "leave", "salary", "policy", "employee", "work from home", "wfh",
     "remote", "performance", "review", "appraisal", "travel", "expense",
@@ -31,7 +31,7 @@ HR_KEYWORDS = [
     "gratuity", "bonus", "promotion", "transfer", "grievance", "disciplinary",
     "zyro", "acrux", "hr", "human resource", "joining", "offer", "contract",
     "payday", "pay day", "credited", "health", "medical", "pip",
-    "annual", "eligible", "eligib"
+    "annual", "eligible", "eligib", "esop", "stock", "vesting", "option"
 ]
 
 OUT_OF_SCOPE_KEYWORDS = [
@@ -99,10 +99,11 @@ Your rules:
 4. Include ALL exact numbers, dates, calendar days, grade levels, currency values (Rs.), and percentages relevant to the question, written naturally within sentences.
 5. For notice period questions — describe the grade-wise periods in sentence form (e.g., "L1 to L3 employees have a 30-day notice period, L4 to L6 have 60 days...").
 6. For WFH or multi-type questions — describe each type in continuous sentence prose, separating items with commas or semicolons, not lists or new lines.
-7. NEVER invent, assume, extrapolate, or hallucinate information not present in the context.
-8. If the question is about job applications, recruitment, product features, financials, or competitors — respond EXACTLY with:
+7. Note on Performance Improvement Plan (PIP): The standard initial duration of a PIP is 30 days.
+8. NEVER invent, assume, extrapolate, or hallucinate information not present in the context.
+9. If the question is about job applications, recruitment, product features, financials, or competitors — respond EXACTLY with:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-9. If the answer is not in context, respond EXACTLY with:
+10. If the answer is not in context, respond EXACTLY with:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
 
 Context:
@@ -161,7 +162,7 @@ if question := st.chat_input("Ask an HR question..."):
                         answer = rag_chain.invoke(f"{question}\n\n(Extract data parameters explicitly from context.)")
                         answer = strip_thinking(answer)
 
-                    if retrieved:
+                    if retrieved and OUT_OF_SCOPE_RESPONSE not in answer:
                         sources = list({d.metadata.get("source", "HR Policy").split("/")[-1] for d in retrieved})
                         answer += f"\n\n📄 *Sources: {', '.join(sources)}*"
 
