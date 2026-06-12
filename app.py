@@ -59,7 +59,6 @@ def strip_thinking(text: str) -> str:
 # Build and Cache the RAG pipeline components
 @st.cache_resource(show_spinner="Loading HR policy documents...")
 def build_rag():
-    # Looks for a directory named 'data' inside your GitHub repository folder
     loader = PyPDFDirectoryLoader("data")
     docs = loader.load()
 
