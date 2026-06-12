@@ -5,8 +5,10 @@ langchain-text-splitters
 langchain-huggingface
 langchain-groq
 langchain-core
-langsmith
 faiss-cpu
 pypdf
 sentence-transformers
+transformers
 torch
+groq
+tiktoken
