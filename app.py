@@ -59,6 +59,7 @@ def is_hr_related(question: str) -> bool:
 def strip_thinking(text: str) -> str:
     """Remove <think>...</think> blocks from reasoning model output"""
     cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    cleaned = cleaned.replace('**', '')
     return cleaned.strip()
 
 
