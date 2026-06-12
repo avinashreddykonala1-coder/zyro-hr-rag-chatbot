@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -28,10 +29,16 @@ HR_KEYWORDS = [
     "maternity", "paternity", "sick", "casual", "earned", "holiday",
     "overtime", "shift", "attendance", "payroll", "insurance", "pf",
     "gratuity", "bonus", "promotion", "transfer", "grievance", "disciplinary",
-    "zyro", "acrux",          # FIX: questions use "Acrux Dynamics" = same company
+    "zyro", "acrux",
     "hr", "human resource", "joining", "offer", "contract",
     "payday", "pay day", "credited", "health", "medical", "pip",
     "annual", "eligible", "eligib"
+]
+
+OUT_OF_SCOPE_KEYWORDS = [
+    "apply for a job", "recruitment", "hiring process",
+    "product features", "acruxcrm", "salesforce", "compare it with",
+    "revenue", "financially", "zoho", "freshworks"
 ]
 
 OUT_OF_SCOPE_RESPONSE = (
@@ -41,9 +48,19 @@ OUT_OF_SCOPE_RESPONSE = (
 
 REFUSAL_PHRASE = "I'm sorry, I can only answer HR-related questions"
 
+
 def is_hr_related(question: str) -> bool:
     q = question.lower()
+    if any(kw in q for kw in OUT_OF_SCOPE_KEYWORDS):
+        return False
     return any(kw in q for kw in HR_KEYWORDS)
+
+
+def strip_thinking(text: str) -> str:
+    """Remove <think>...</think> blocks from reasoning model output"""
+    cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    return cleaned.strip()
+
 
 # ── Build RAG pipeline (cached so it only runs once) ─────────
 @st.cache_resource(show_spinner="Loading HR policy documents...")
@@ -51,53 +68,54 @@ def build_rag():
     loader = PyPDFDirectoryLoader("data")
     docs = loader.load()
 
-    # FIX: larger chunks preserve salary tables, CTC grade tables, WFH tables
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,       # was 500
-        chunk_overlap=200,     # was 100
+        chunk_size=1500,
+        chunk_overlap=300,
         separators=["\n\n", "\n", ".", " ", ""]
     )
     chunks = splitter.split_documents(docs)
 
-    # FIX: stronger embedding model for HR domain terms
     embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-mpnet-base-v2"  # was all-MiniLM-L6-v2
+        model_name="sentence-transformers/all-mpnet-base-v2"
     )
 
     vectorstore = FAISS.from_documents(chunks, embeddings)
 
-    # FIX: wider retrieval net to catch sparse policy mentions
     retriever = vectorstore.as_retriever(
         search_type="mmr",
         search_kwargs={
-            "k": 8,            # was 6
-            "fetch_k": 30,     # was 20
-            "lambda_mult": 0.6
+            "k": 8,
+            "fetch_k": 30,
+            "lambda_mult": 0.5
         }
     )
 
-    # FIX: stronger model + more tokens for complete multi-part answers
+    # NOTE: Update "model" below to match exactly what you used in Kaggle Cell 9
     llm = ChatGroq(
         groq_api_key=st.secrets["GROQ_API_KEY"],
-        model="gemma2-9b-it",   # was llama-3.1-8b-instant 
+        model="qwen/qwen3-32b",   # 
         temperature=0,
-        max_tokens=1024                     # was 512
+        max_tokens=2048
     )
 
-    # FIX: prompt explicitly handles Acrux = Zyro alias + table extraction
     prompt = ChatPromptTemplate.from_template("""
 You are a precise HR policy assistant for Zyro Dynamics Pvt. Ltd.
 
-IMPORTANT: Some questions may refer to the company as "Acrux Dynamics" — treat this as the same company as "Zyro Dynamics" and answer using the Zyro Dynamics policy documents.
+IMPORTANT: "Acrux Dynamics" and "Zyro Dynamics" are the same company.
 
 Your rules:
-1. Answer ONLY using the context provided below from the HR policy documents.
-2. Be specific — include exact numbers, days, weeks, percentages, dates, grade levels, and policy names when they appear in the context.
-3. If a table or list is present in the context that answers the question, reproduce ALL relevant rows/items from it.
-4. Do NOT add any information not present in the context.
-5. Do NOT say information is "not explicitly mentioned" if it IS present — read carefully.
-6. If the question is genuinely not about Zyro Dynamics HR policies, or the answer is truly not in the context, respond with EXACTLY:
+1. Answer ONLY using the context provided below.
+2. Do NOT start with "According to..." or "As per the policy..."
+3. Give COMPLETE answers — include ALL numbers, dates, tables, and details.
+4. For notice period — show full grade-wise table (L1-L3, L4-L6, L7-L9, L10).
+5. For WFH — list ALL types with eligibility criteria.
+6. For leave questions — give EXACT numbers from the leave entitlement table.
+7. Never summarize a table — reproduce it fully.
+8. NEVER invent or hallucinate ANY information not present in the context.
+9. If the question is about job applications, recruitment, product features, financials, or competitors — respond EXACTLY with:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
+10. If answer is not in context, respond EXACTLY with:
+    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
 
 Context:
 {context}
@@ -156,8 +174,9 @@ if question := st.chat_input("Ask an HR question..."):
                     answer = OUT_OF_SCOPE_RESPONSE
                 else:
                     answer = rag_chain.invoke(question)
+                    answer = strip_thinking(answer)  # remove <think> blocks
 
-                    # FIX: retry if LLM refused on a valid HR question (Acrux alias edge case)
+                    # Retry if LLM refused on a valid HR question
                     if REFUSAL_PHRASE in answer and is_hr_related(question):
                         retry_question = (
                             f"{question}\n\n"
@@ -165,6 +184,7 @@ if question := st.chat_input("Ask an HR question..."):
                             "Please look carefully through the entire context for the answer.)"
                         )
                         answer = rag_chain.invoke(retry_question)
+                        answer = strip_thinking(answer)
 
                     # Show source documents
                     if retrieved:
