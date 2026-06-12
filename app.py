@@ -93,7 +93,7 @@ def build_rag():
     # NOTE: Update "model" below to match exactly what you used in Kaggle Cell 9
     llm = ChatGroq(
         groq_api_key=st.secrets["GROQ_API_KEY"],
-        model="qwen/qwen3-32b",   # 
+        model="qwen/qwen3-32b",   
         temperature=0,
         max_tokens=2048
     )
@@ -124,20 +124,6 @@ Question: {question}
 Answer:
 """)
 
-def format_docs(docs):
-    return "\n\n".join(
-        f"[Source: {d.metadata.get('source', 'HR Policy')}]\n{d.page_content}"
-        for d in docs
-    )
-
-rag_chain = (
-    {"context": retriever | format_docs, "question": RunnablePassthrough()}
-    | prompt
-    | llm
-    | StrOutputParser()
-)
-print("Plain-prose prompt ready.")
-
     def format_docs(docs):
         return "\n\n".join(
             f"[Source: {d.metadata.get('source', 'HR Policy')}]\n{d.page_content}"
@@ -152,6 +138,7 @@ print("Plain-prose prompt ready.")
     )
 
     return retriever, rag_chain
+
 
 retriever, rag_chain = build_rag()
 
