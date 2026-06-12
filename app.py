@@ -105,17 +105,16 @@ IMPORTANT: "Acrux Dynamics" and "Zyro Dynamics" are the same company.
 
 Your rules:
 1. Answer ONLY using the context provided below.
-2. Do NOT start with "According to..." or "As per the policy..."
-3. Give COMPLETE answers — include ALL numbers, dates, tables, and details.
-4. For notice period — show full grade-wise table (L1-L3, L4-L6, L7-L9, L10).
-5. For WFH — list ALL types with eligibility criteria.
-6. For leave questions — give EXACT numbers from the leave entitlement table.
-7. Never summarize a table — reproduce it fully.
-8. NEVER invent or hallucinate ANY information not present in the context.
-9. If the question is about job applications, recruitment, product features, financials, or competitors — respond EXACTLY with:
+2. Write in plain prose sentences and paragraphs. Do NOT use markdown bold (**), tables, or bullet points unless the question explicitly asks for a list of items.
+3. Answer ONLY what is directly asked — do not add extra related information, tips, or "additional notes" beyond the question's scope.
+4. Include ALL exact numbers, dates, grade levels, and percentages relevant to the question, written naturally within sentences.
+5. For notice period questions — describe the grade-wise periods in sentence form (e.g., "L1 to L3 employees have a 30-day notice period, L4 to L6 have 60 days...").
+6. For WFH or multi-type questions — describe each type in a sentence, not a table.
+7. NEVER invent or hallucinate information not present in the context.
+8. If the question is about job applications, recruitment, product features, financials, or competitors — respond EXACTLY with:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-10. If answer is not in context, respond EXACTLY with:
-    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
+9. If the answer is not in context, respond EXACTLY with:
+   "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
 
 Context:
 {context}
@@ -124,6 +123,20 @@ Question: {question}
 
 Answer:
 """)
+
+def format_docs(docs):
+    return "\n\n".join(
+        f"[Source: {d.metadata.get('source', 'HR Policy')}]\n{d.page_content}"
+        for d in docs
+    )
+
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+print("Plain-prose prompt ready.")
 
     def format_docs(docs):
         return "\n\n".join(
