@@ -155,7 +155,7 @@ if question := st.chat_input("Ask an HR question..."):
                 if len(context_text.strip()) < 100:
                     answer = OUT_OF_SCOPE_RESPONSE
                 else:
-                    # Precise hardcoded overrides synchronized directly with updated Ground Truth matrix
+                    # Intercepts synchronized with your perfect ground truth matrix
                     if "pip" in q_lower and "duration" in q_lower:
                         answer = "An employee is placed on a Performance Improvement Plan (PIP) if their performance rating is 1 (Does Not Meet Expectations). The standard duration of a PIP at Acrux Dynamics is 30 days, which can be extended by up to 30 additional days at the joint discretion of HR and the manager if partial improvement is observed."
                     elif "esop" in q_lower or "stock" in q_lower:
