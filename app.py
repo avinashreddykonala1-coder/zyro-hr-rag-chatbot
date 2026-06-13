@@ -104,7 +104,8 @@ def build_rag():
         groq_api_key=st.secrets["GROQ_API_KEY"],
         model="qwen/qwen3-32b",
         temperature=0,
-        max_tokens=2048
+        max_tokens=2048,
+        reasoning_effort="none"
     )
 
     prompt = ChatPromptTemplate.from_template("""
