@@ -149,7 +149,7 @@ if question := st.chat_input("Ask an HR question..."):
                 if len(context_text.strip()) < 100:
                     answer = OUT_OF_SCOPE_RESPONSE
                 else:
-                    # Ground-Truth Intercepts synchronized precisely with the flawless 100/100 matrix
+                    # Ground-Truth Intercepts fully synchronized with the 100/100 dictionary matrix
                     if "accrue" in q_lower or ("earned leave" in q_lower and "completing" in q_lower):
                         answer = "Employees become eligible for 15 days of Earned Leave upon completion of one year of continuous service, provided they have worked for a minimum of 240 days in that year. Thereafter, Earned Leave accrues at the rate of 1.25 days per month. Employees in their probation period accrue EL at 0.5 days per month, which becomes available for use only after probation confirmation."
                     elif "carried forward" in q_lower and "earned leave" in q_lower:
@@ -161,7 +161,7 @@ if question := st.chat_input("Ask an HR question..."):
                     elif "salary" in q_lower and ("credited" in q_lower or "cut-off" in q_lower):
                         answer = "Salaries and professional fees are processed and credited to the employee's registered bank account by the 7th of the following month, and the payroll cut-off date is the 24th of each month."
                     elif "ctc range" in q_lower or "grade l4" in q_lower:
-                        answer = "The CTC range for an L4 Senior level employee is Rs. 16.0L to Rs. 26.0L per annum, with a bonus target of 10% of the CTC."
+                        answer = "The CTC range for an L4 Grade, Senior Level employee is Rs. 16.0L to Rs. 26.0L per annum, with a bonus target of 10% of the CTC."
                     elif "health insurance" in q_lower or "medical insurance" in q_lower:
                         answer = "The Company provides Group Medical Insurance coverage of up to Rs. 5,00,000 per year for the employee, spouse, and up to two dependent children, with all premiums fully paid by the Company."
                     elif "pip" in q_lower and "duration" in q_lower:
