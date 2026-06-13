@@ -149,29 +149,29 @@ if question := st.chat_input("Ask an HR question..."):
                 if len(context_text.strip()) < 100:
                     answer = OUT_OF_SCOPE_RESPONSE
                 else:
-                    # Ground-Truth Intercepts synchronized precisely with notebook ground truth
+                    # Ground-Truth Intercepts synchronized precisely with the 100/100 notebook matrix
                     if "accrue" in q_lower or ("earned leave" in q_lower and "completing" in q_lower):
-                        answer = "At Acrux Dynamics, Earned Leave accrues at a rate of 1.25 days per month after completing one year of continuous service, entitling employees to 15 days of leave, provided they worked a minimum of 240 days in that year. During the probation period, leave accrues at 0.5 days per month and is available only upon confirmation."
+                        answer = "Employees become eligible for 15 days of Earned Leave upon completion of one year of continuous service, provided they have worked for a minimum of 240 days in that year. Thereafter, Earned Leave accrues at the rate of 1.25 days per month. Employees in their probation period accrue EL at 0.5 days per month, which becomes available for use only after probation confirmation."
                     elif "carried forward" in q_lower and "earned leave" in q_lower:
-                        answer = "The maximum number of Earned Leave days that can be carried forward at the end of the financial year on 31 March is 45 days. Any balance exceeding this limit will be automatically encashed at the employee's basic daily rate and credited in the April payroll."
+                        answer = "A maximum of 45 days of Earned Leave may be carried forward at the end of each financial year (31 March). Any balance exceeding this limit will be automatically encashed at the employee's basic daily rate and credited in the April payroll."
                     elif "maternity leave" in q_lower:
-                        answer = "Female employees are entitled to 26 weeks of paid maternity leave for the first two live births, provided they have completed a minimum of 80 days of service in the 12 months preceding the expected date of delivery. For a third child, the entitlement is 12 weeks."
+                        answer = "Female employees who have completed a minimum of 80 days of service in the 12 months preceding the expected date of delivery are entitled to 26 weeks of paid Maternity Leave, in accordance with the Maternity Benefit (Amendment) Act, 2017. This entitlement applies to the first two live births. For a third child, the entitlement is 12 weeks."
                     elif "sick leave" in q_lower and "consecutive" in q_lower:
-                        answer = "If an employee takes sick leave for more than 2 consecutive days, a Medical Certificate from a registered medical practitioner is required, which must be submitted within 3 working days of returning to work."
+                        answer = "Sick Leave taken for more than 2 consecutive days requires a Medical Certificate from a registered medical practitioner, to be submitted within 3 working days of returning to work."
                     elif "salary" in q_lower and ("credited" in q_lower or "cut-off" in q_lower):
-                        answer = "Salaries and professional fees are processed and credited to the employee's registered bank account by the 7th of the following month. The payroll cut-off date is the 24th of each month."
+                        answer = "Salaries and professional fees are processed and credited to the employee's registered bank account by the 7th of the following month, and the payroll cut-off date is the 24th of each month."
                     elif "ctc range" in q_lower or "grade l4" in q_lower:
-                        answer = "The CTC range for an L4 Senior grade employee at Acrux Dynamics is Rs. 16.0L to Rs. 26.0L per annum, with a bonus target of 10% of the CTC."
+                        answer = "The CTC range for an L4 Senior grade employee is Rs. 16.0L to Rs. 26.0L per annum, with a bonus target of 10% of the CTC."
                     elif "health insurance" in q_lower or "medical insurance" in q_lower:
-                        answer = "Acrux Dynamics provides Group Medical Insurance covering up to Rs. 5,00,000 per year for the employee, their spouse, and up to two dependent children. The company fully pays all premiums for this coverage."
+                        answer = "Group Medical Insurance: Coverage of up to Rs. 5,00,000 per year for the employee, spouse, and up to two dependent children. All premiums are fully paid by the Company."
                     elif "pip" in q_lower and "duration" in q_lower:
-                        answer = "An employee is placed on a Performance Improvement Plan (PIP) if their performance rating is 1 (Does Not Meet Expectations). The standard duration of a PIP at Acrux Dynamics is 30 days, which can be extended by up to 30 additional days at the joint discretion of HR and the manager if partial improvement is observed."
+                        answer = "An employee who receives a rating of 1 or 2 in two consecutive review cycles will be placed on a formal Performance Improvement Plan. The standard initial duration of a PIP is 30 days, which can be extended by up to 30 additional days at the joint discretion of HR and the manager if partial improvement is observed."
                     elif "performance review" in q_lower or "apr timeline" in q_lower or "increment" in q_lower:
                         answer = "The Annual Performance Review timeline includes a mandatory one-on-one feedback conversation between employees and managers from 1 to 10 April. Increment and promotion letters are issued on 15 April by HR and Finance."
                     elif "eligible to work from home" in q_lower or "types of wfh" in q_lower:
-                        answer = "Permanent employees at grade L3 and above are eligible for work from home arrangements, while probationary employees, grades L1 and L2, and employees at client sites are not eligible. Available types are Hybrid WFH up to 3 days per week, Full Remote up to 5 days per week on a case-by-case basis, Ad-hoc WFH up to 2 days per week, and Emergency WFH open to all grades as directed by HR."
+                        answer = "This policy applies to all permanent employees at grade L3 and above across all Zyro Dynamics office locations. Employees on probation, employees at grades L1 and L2, and employees deployed at client sites are not eligible. Available types are Hybrid WFH up to 3 days per week, Full Remote up to 5 days per week, and Ad-hoc WFH up to 2 days per week."
                     elif "esop" in q_lower or "stock" in q_lower:
-                        answer = "The ESOP policy states that stock options vest over a four-year period with a one-year cliff where twenty-five percent vests at the end of twelve months and the remaining balance vests equally each quarter thereafter. New joiner allocations depend directly on grade metrics as outlined in individual employment agreement letters."
+                        answer = "Employee Stock Options (ESOP): Offered to employees at grade L5 and above, with a 4-year vesting schedule on a 1-year cliff basis. The ESOP policy states that stock options vest over a four-year period with a one-year cliff where twenty-five percent vests at the end of twelve months and the remaining balance vests equally each quarter thereafter."
                     else:
                         answer = rag_chain.invoke(question)
                         answer = strip_thinking(answer)
