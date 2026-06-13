@@ -97,7 +97,7 @@ def build_rag():
     vectorstore = FAISS.from_documents(chunks, embeddings)
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 6, "fetch_k": 30, "lambda_mult": 0.5}
+        search_kwargs={"k": 8, "fetch_k": 40, "lambda_mult": 0.7}
     )
 
     llm = ChatGroq(
