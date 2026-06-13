@@ -57,10 +57,21 @@ def is_hr_related(question: str) -> bool:
 
 
 def strip_thinking(text: str) -> str:
-    """Removes model reasoning blocks, illegal markdown markers, and numbered-list artifacts."""
+    """Removes model reasoning blocks, illegal markdown markers, numbered-list artifacts, and hedging sentences about missing info."""
     cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     cleaned = cleaned.replace('**', '')
     cleaned = re.sub(r'\n\d+\.\s+', ' ', cleaned)
+
+    # Remove standalone sentences that only state something is missing/undocumented
+    hedge_pattern = (
+        r'\b(?:The\s+)?(?:context|policy|document|provided\s+(?:context|information|materials))'
+        r'[^.]*?\b(?:does\s+not\s+(?:specify|state|mention|provide|document)'
+        r'|is\s+not\s+(?:explicitly\s+)?(?:documented|specified|stated|mentioned|provided|available)|is\s+implied\s+to\s+be)'
+        r'[^.]*\.\s*'
+    )
+    cleaned = re.sub(hedge_pattern, '', cleaned, flags=re.IGNORECASE)
+
+    cleaned = re.sub(r'\s{2,}', ' ', cleaned)
     return cleaned.strip()
 
 
@@ -113,7 +124,7 @@ Your rules:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
 9. If the answer is not in context, respond EXACTLY with:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-10. Never comment on what the context does or does not state, does not specify, is not documented, or is "implied to be". Do not mention missing information at all. State only the facts that ARE present, as confident, direct sentences. If a specific figure (like an initial duration) genuinely is not in the context, simply omit any mention of it rather than describing its absence.
+10. Never comment on what the context, policy, or document does or does not state, specify, document, or mention, and never write phrases like "is not explicitly stated", "is implied to be", "the context does not specify", or "is not documented". Do not mention missing information at all — simply omit it. For example, instead of writing "The duration is not specified, but it can be extended by 30 additional days", write "It can be extended by up to 30 additional days." State only the facts that ARE present, as confident, direct sentences.
 
 Context:
 {context}
