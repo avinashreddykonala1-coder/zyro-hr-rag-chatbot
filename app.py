@@ -34,7 +34,6 @@ HR_KEYWORDS = [
     "zyro", "acrux", "hr", "human resource", "joining", "joiner", "offer", "contract",
     "payday", "pay day", "credited", "health", "medical", "pip",
     "annual", "eligible", "eligib",
-    # ESOP / equity additions
     "esop", "stock option", "stock options", "vesting", "vest",
     "equity", "shares", "cliff"
 ]
@@ -57,19 +56,23 @@ def is_hr_related(question: str) -> bool:
 
 
 def strip_thinking(text: str) -> str:
-    """Removes model reasoning blocks, illegal markdown markers, numbered-list artifacts, and hedging sentences about missing info."""
+    """Removes reasoning blocks, markdown, numbered lists, and hedge sentences."""
     cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     cleaned = cleaned.replace('**', '')
     cleaned = re.sub(r'\n\d+\.\s+', ' ', cleaned)
 
-    # Remove standalone sentences that only state something is missing/undocumented
-    hedge_pattern = (
-        r'\b(?:The\s+)?(?:context|policy|document|provided\s+(?:context|information|materials))'
-        r'[^.]*?\b(?:does\s+not\s+(?:specify|state|mention|provide|document)'
-        r'|is\s+not\s+(?:explicitly\s+)?(?:documented|specified|stated|mentioned|provided|available)|is\s+implied\s+to\s+be)'
-        r'[^.]*\.\s*'
+    # Remove any sentence containing hedge phrases about missing info
+    hedge_pattern = re.compile(
+        r'[^.]*?\b(?:is\s+not\s+(?:explicitly\s+)?(?:specified|stated|documented|mentioned|provided|available)'
+        r'|does\s+not\s+(?:specify|state|mention|provide|document)'
+        r'|is\s+implied\s+to\s+be)[^.]*\.\s*',
+        re.IGNORECASE
     )
-    cleaned = re.sub(hedge_pattern, '', cleaned, flags=re.IGNORECASE)
+    cleaned = hedge_pattern.sub('', cleaned)
+
+    # Clean up orphaned conjunctions from removed sentences
+    cleaned = re.sub(r'^\s*(However|But)\s*,?\s*', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\.\s+(However|But)\s*,?\s+', '. ', cleaned, flags=re.IGNORECASE)
 
     cleaned = re.sub(r'\s{2,}', ' ', cleaned)
     return cleaned.strip()
@@ -115,17 +118,19 @@ IMPORTANT: "Acrux Dynamics" and "Zyro Dynamics" are the same company.
 
 Your rules:
 1. Answer ONLY using the context provided below.
-2. Write completely in plain prose sentences and paragraphs. Do NOT use markdown bold (**), markdown headers, HTML, tables, markdown lists, numbered lists (such as 1., 2., 3.), or bullet points under any circumstances.
-3. Answer ONLY what is directly asked, addressing every part of a multi-part question but nothing beyond it — do not add extra related information, exceptions, edge cases, tips, meta-notes, or "additional notes" beyond the question's literal scope. If the question asks about post-probation entitlement, do not mention probation-period rules unless explicitly asked.
-4. Include ALL exact numbers, dates, calendar days, grade levels, currency values (Rs.), and percentages relevant to the question, written naturally within sentences.
-5. For notice period questions — describe the grade-wise periods in sentence form (e.g., "L1 to L3 employees have a 30-day notice period, L4 to L6 have 60 days...").
-6. For WFH or multi-type questions — describe each type in continuous sentence prose, separating items with commas or semicolons, not lists or new lines.
-7. NEVER invent, assume, extrapolate, or hallucinate information not present in the context.
+2. Write in plain prose sentences only. Do NOT use markdown bold (**), headers, HTML, tables, bullet points, or numbered lists (1., 2., 3.) under any circumstances.
+3. Answer ONLY what is directly asked. Do not add exceptions, edge cases, probation rules, or extra clauses unless the question specifically asks for them.
+4. Include ALL exact numbers, dates, grade levels, currency values (Rs.), and percentages directly relevant to the question, written naturally in sentences.
+5. For notice period questions — describe grade-wise periods in sentence form.
+6. For WFH or multi-type questions — describe each type in continuous prose using commas or semicolons, not lists or new lines.
+7. NEVER invent, assume, or hallucinate information not present in the context.
 8. If the question is about job applications, recruitment, product features, financials, or competitors — respond EXACTLY with:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-9. If the answer is not in context, respond EXACTLY with:
+9. If the answer is genuinely not in the context — respond EXACTLY with:
    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-10. Never comment on what the context, policy, or document does or does not state, specify, document, or mention, and never write phrases like "is not explicitly stated", "is implied to be", "the context does not specify", or "is not documented". Do not mention missing information at all — simply omit it. For example, instead of writing "The duration is not specified, but it can be extended by 30 additional days", write "It can be extended by up to 30 additional days." State only the facts that ARE present, as confident, direct sentences.
+10. Never write phrases like "is not explicitly stated", "the context does not specify", "is implied to be", or "is not documented". Simply omit anything not in the context — do not describe its absence. For example: instead of "The duration is not specified, but it can be extended by 30 days", write "It can be extended by up to 30 days."
+11. For maternity leave questions — always include BOTH the standard entitlement (26 weeks for first two live births) AND the third-child entitlement (12 weeks) if both are present in the context.
+12. For APR/performance review timeline questions — give a CONCISE answer covering only the key milestone dates and when letters are issued. Do not list every sub-step of the review process unless asked.
 
 Context:
 {context}
@@ -172,10 +177,9 @@ def ask_bot(question: str) -> str:
     if REFUSAL_PHRASE in answer and is_hr_related(question):
         hint_question = (
             f"{question}\n\n"
-            "(Note: Evaluate the context text comprehensively. Pull all numbers, dates, ranges, and explicit values directly.)"
+            "(Note: Evaluate the context comprehensively. Pull all numbers, dates, ranges, and explicit values directly.)"
         )
-        answer = rag_chain.invoke(hint_question)
-        answer = strip_thinking(answer)
+        answer = strip_thinking(rag_chain.invoke(hint_question))
 
     if retrieved:
         sources = list({d.metadata.get("source", "HR Policy").split("/")[-1] for d in retrieved})
