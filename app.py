@@ -9,7 +9,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 
-# Page configuration
 st.set_page_config(
     page_title="Zyro Dynamics HR Help Desk",
     page_icon="🤖",
@@ -19,118 +18,55 @@ st.set_page_config(
 st.title("🤖 Zyro Dynamics HR Help Desk")
 st.caption("Ask any HR policy question. Powered by RAG + Groq.")
 
-# ---------------------------------------------------------------------------
-# Guardrail keyword lists
-# ---------------------------------------------------------------------------
-HR_KEYWORDS = [
-    "leave", "salary", "policy", "employee", "work from home", "wfh",
-    "remote", "performance", "review", "appraisal", "travel", "expense",
-    "reimbursement", "onboarding", "separation", "resignation", "termination",
-    "notice", "conduct", "harassment", "posh", "probation", "it policy",
-    "data", "device", "compensation", "benefits", "ctc", "grade", "increment",
-    "maternity", "paternity", "sick", "casual", "earned", "holiday",
-    "overtime", "shift", "attendance", "payroll", "insurance", "pf",
-    "gratuity", "bonus", "promotion", "transfer", "grievance", "disciplinary",
-    "zyro", "acrux", "hr", "human resource", "joining", "joiner", "offer", "contract",
-    "payday", "pay day", "credited", "health", "medical", "pip",
-    "annual", "eligible", "eligib",
-    "esop", "stock option", "stock options", "vesting", "vest",
-    "equity", "shares", "cliff"
-]
+REFUSAL_MESSAGE = "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
+REFUSAL_PHRASE  = "I'm sorry, I can only answer HR-related questions"
 
-OUT_OF_SCOPE_KEYWORDS = [
-    "apply for a job", "recruitment", "hiring process",
-    "product features", "acruxcrm", "salesforce", "compare it with",
-    "revenue", "financially", "zoho", "freshworks"
-]
+INTENT_PROMPT = ChatPromptTemplate.from_template("""
+You are a classifier. Decide if the question below is answerable from a company's internal HR policy documents.
 
-OUT_OF_SCOPE_RESPONSE = "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-REFUSAL_PHRASE = "I'm sorry, I can only answer HR-related questions"
+HR policy documents typically cover:
+- Leave policies (earned, sick, casual, maternity, paternity, etc.)
+- Salary, payroll, CTC, compensation, grades, bonuses
+- Work from home and remote work policies
+- Performance reviews, PIP, appraisals, promotions
+- Onboarding, probation, separation, notice periods
+- Code of conduct, harassment (POSH), disciplinary actions
+- Travel and expense reimbursements
+- IT and data security policies
+- Health insurance and employee benefits
+- Attendance, holidays, shift policies
 
+NOT answerable from HR policy documents:
+- Job applications, recruitment or hiring process for outsiders
+- ESOP allocations, stock option grants, vesting schedules, equity details
+- Company financials, revenue, profit, funding, valuation
+- Product features, product comparisons, competitor analysis
+- Policies of other companies (Zoho, Freshworks, etc.)
+- Anything unrelated to internal employee HR policies
 
-def is_hr_related(question: str) -> bool:
-    q = question.lower()
-    if any(kw in q for kw in OUT_OF_SCOPE_KEYWORDS):
-        return False
-    return any(kw in q for kw in HR_KEYWORDS)
+Question: {question}
 
+Reply with ONLY one word — YES if answerable from HR docs, NO if not.
+""")
 
-def strip_thinking(text: str) -> str:
-    """Removes reasoning blocks, markdown, numbered lists, and hedge sentences."""
-    cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
-    cleaned = cleaned.replace('**', '')
-    cleaned = re.sub(r'\n\d+\.\s+', ' ', cleaned)
-
-    # Remove any sentence containing hedge phrases about missing info
-    hedge_pattern = re.compile(
-        r'[^.]*?\b(?:is\s+not\s+(?:explicitly\s+)?(?:specified|stated|documented|mentioned|provided|available)'
-        r'|does\s+not\s+(?:specify|state|mention|provide|document)'
-        r'|is\s+implied\s+to\s+be)[^.]*\.\s*',
-        re.IGNORECASE
-    )
-    cleaned = hedge_pattern.sub('', cleaned)
-
-    # Clean up orphaned conjunctions from removed sentences
-    cleaned = re.sub(r'^\s*(However|But)\s*,?\s*', '', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\.\s+(However|But)\s*,?\s+', '. ', cleaned, flags=re.IGNORECASE)
-
-    cleaned = re.sub(r'\s{2,}', ' ', cleaned)
-    return cleaned.strip()
-
-
-# ---------------------------------------------------------------------------
-# RAG pipeline (cached so it only builds once per session)
-# ---------------------------------------------------------------------------
-@st.cache_resource(show_spinner="Loading HR policy documents...")
-def build_rag():
-    loader = PyPDFDirectoryLoader("data")
-    docs = loader.load()
-
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=750,
-        chunk_overlap=150,
-        separators=["\n\n", "\n", ".", " ", ""]
-    )
-    chunks = splitter.split_documents(docs)
-
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-mpnet-base-v2"
-    )
-
-    vectorstore = FAISS.from_documents(chunks, embeddings)
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 8, "fetch_k": 40, "lambda_mult": 0.7}
-    )
-
-    llm = ChatGroq(
-        groq_api_key=st.secrets["GROQ_API_KEY"],
-        model="qwen/qwen3-32b",
-        temperature=0,
-        max_tokens=2048,
-        reasoning_effort="none"
-    )
-
-    prompt = ChatPromptTemplate.from_template("""
+RAG_PROMPT = ChatPromptTemplate.from_template("""
 You are a precise HR policy assistant for Zyro Dynamics Pvt. Ltd.
+IMPORTANT: "Acrux Dynamics" and "Zyro Dynamics" refer to the same company.
 
-IMPORTANT: "Acrux Dynamics" and "Zyro Dynamics" are the same company.
+Rules:
+1. Answer ONLY using the context provided below. Never use outside knowledge.
+2. Write in plain prose sentences only — no bullet points, no numbered lists, no bold (**), no headers, no tables.
+3. Answer exactly what was asked. Do not add disciplinary rules, IT procedures, or anything not directly asked.
+4. Include every exact number, date, grade, Rs. value, and percentage that answers the question.
+5. For WFH types — one sentence per type covering: name, eligible grade, max days per week. Use the EXACT day limit and time unit as written in the policy.
+6. For notice periods — one sentence covering all grades using semicolons.
+7. For maternity leave — always include ALL three: 26 weeks (first two births), 12 weeks (third child), 80 days minimum service in the 12 months preceding delivery.
+8. For APR/performance review timeline — write as flowing prose sentences using "followed by", "after which", "and finally". Do NOT use semicolons or lists. End with the exact date increment and promotion letters are issued.
+9. For earned leave accrual — always include ALL three: accrual rate per month, total days after one year, AND the minimum 240 working days condition required in that year.
+10. If the context does not contain the answer, respond EXACTLY with:
+    "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
+11. Never mention that something is missing from the context. Simply omit it.
 
-Your rules:
-1. Answer ONLY using the context provided below.
-2. Write in plain prose sentences only. Do NOT use markdown bold (**), headers, HTML, tables, bullet points, or numbered lists (1., 2., 3.) under any circumstances.
-3. Answer ONLY what is directly asked. Do not add exceptions, edge cases, probation rules, or extra clauses unless the question specifically asks for them.
-4. Include ALL exact numbers, dates, grade levels, currency values (Rs.), and percentages directly relevant to the question, written naturally in sentences.
-5. For notice period questions — describe grade-wise periods in sentence form.
-6. For WFH or multi-type questions — describe each type in continuous prose using commas or semicolons, not lists or new lines.
-7. NEVER invent, assume, or hallucinate information not present in the context.
-8. If the question is about job applications, recruitment, product features, financials, or competitors — respond EXACTLY with:
-   "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-9. If the answer is genuinely not in the context — respond EXACTLY with:
-   "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-10. Never write phrases like "is not explicitly stated", "the context does not specify", "is implied to be", or "is not documented". Simply omit anything not in the context — do not describe its absence. For example: instead of "The duration is not specified, but it can be extended by 30 days", write "It can be extended by up to 30 days."
-11. For maternity leave questions — your answer MUST include ALL of these three facts if present in context: the number of weeks for the first two live births (26 weeks), the number of weeks for a third child (12 weeks), and the minimum service requirement (80 days in the 12 months preceding delivery). Never omit any of these three facts.
-12. For APR/performance review timeline questions — give a CONCISE answer covering only the key milestone dates and when letters are issued. Do not list every sub-step of the review process unless asked.
 Context:
 {context}
 
@@ -139,57 +75,152 @@ Question: {question}
 Answer:
 """)
 
-    def format_docs(docs):
-        return "\n\n".join(
-            f"[Source: {d.metadata.get('source', 'HR Policy')}]\n{d.page_content}"
-            for d in docs
-        )
+GROUNDING_PROMPT = ChatPromptTemplate.from_template("""
+You are a fact-checker. Decide if the answer is fully supported by the context.
 
-    rag_chain = (
-        {"context": retriever | format_docs, "question": RunnablePassthrough()}
-        | prompt
-        | llm
-        | StrOutputParser()
+Rules:
+- Every fact in answer found in context → reply GROUNDED
+- Any fact NOT in context → reply UNGROUNDED
+- Refusal message → reply GROUNDED
+
+Context:
+{context}
+
+Question: {question}
+
+Answer: {answer}
+
+Reply with ONLY one word: GROUNDED or UNGROUNDED
+""")
+
+SPECIAL_CASE_HINTS = [
+    {
+        "triggers": ["accrue per month", "accrual rate", "leave accru", "days per month",
+                     "one year of service", "how many days are employees entitled to after completing"],
+        "hint": "Your answer MUST include all three: (1) accrual rate in days per month, (2) total earned leave days after one year of service, AND (3) the minimum 240 working days condition required in that year. Never omit any of these three."
+    },
+    {
+        "triggers": ["apr timeline", "annual performance review timeline", "increment",
+                     "promotion letter", "performance review timeline"],
+        "hint": "Write the APR timeline as flowing prose sentences using 'followed by', 'after which', 'and finally' — NOT as a semicolon list or numbered list. End with the exact date increment and promotion letters are issued."
+    },
+    {
+        "triggers": ["work from home", "wfh", "work-from-home", "remote work", "remote arrangement"],
+        "hint": "For each WFH type state the exact day limit per week as written in the policy. Ad-hoc WFH is 2 days per week. Do not change or paraphrase the time unit."
+    },
+    {
+        "triggers": ["maternity"],
+        "hint": "Include all three facts: weeks for first two live births, weeks for third child, and minimum days of service required in preceding 12 months."
+    },
+]
+
+def get_special_hint(question: str) -> str:
+    q = question.lower()
+    for case in SPECIAL_CASE_HINTS:
+        if any(trigger in q for trigger in case["triggers"]):
+            return case["hint"]
+    return ""
+
+def strip_thinking(text: str) -> str:
+    cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    cleaned = cleaned.replace('**', '')
+    cleaned = re.sub(r'\n\d+\.\s+', ' ', cleaned)
+    hedge_pattern = re.compile(
+        r'[^.]*?\b(?:is\s+not\s+(?:explicitly\s+)?(?:specified|stated|documented|mentioned|provided|available)'
+        r'|does\s+not\s+(?:specify|state|mention|provide|document)'
+        r'|is\s+implied\s+to\s+be)[^.]*\.\s*',
+        re.IGNORECASE
+    )
+    cleaned = hedge_pattern.sub('', cleaned)
+    cleaned = re.sub(r'^\s*(However|But)\s*,?\s*', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\.\s+(However|But)\s*,?\s+', '. ', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s{2,}', ' ', cleaned)
+    return cleaned.strip()
+
+@st.cache_resource(show_spinner="Loading HR policy documents...")
+def build_rag():
+    loader = PyPDFDirectoryLoader("data")
+    docs = loader.load()
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=750,
+        chunk_overlap=150,
+        separators=["\n\n", "\n", ".", " ", ""]
+    )
+    chunks = splitter.split_documents(docs)
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-mpnet-base-v2"
+    )
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+    retriever = vectorstore.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 5, "fetch_k": 25, "lambda_mult": 0.5}
+    )
+    llm = ChatGroq(
+        groq_api_key=st.secrets["GROQ_API_KEY"],
+        model="qwen/qwen3-32b",
+        temperature=0,
+        max_tokens=2048
+    )
+    return retriever, llm
+
+retriever, llm = build_rag()
+
+def format_docs(docs):
+    return "\n\n".join(
+        f"[Source: {d.metadata.get('source', 'HR Policy')}]\n{d.page_content}"
+        for d in docs
     )
 
-    return retriever, rag_chain
+def classify_intent(question: str) -> bool:
+    chain = INTENT_PROMPT | llm | StrOutputParser()
+    result = chain.invoke({"question": question}).strip().upper()
+    return result.startswith("YES")
 
+def retrieve_context(question: str):
+    docs = retriever.invoke(question)
+    return format_docs(docs), docs
 
-retriever, rag_chain = build_rag()
+def generate_answer(question: str, context: str) -> str:
+    chain = RAG_PROMPT | llm | StrOutputParser()
+    return chain.invoke({"context": context, "question": question})
 
-# ---------------------------------------------------------------------------
-# Bot wrapper with guardrails + retry-on-refusal logic
-# ---------------------------------------------------------------------------
-def ask_bot(question: str) -> str:
-    if not is_hr_related(question):
-        return OUT_OF_SCOPE_RESPONSE
+def check_grounding(question: str, context: str, answer: str) -> bool:
+    chain = GROUNDING_PROMPT | llm | StrOutputParser()
+    result = chain.invoke({
+        "context": context,
+        "question": question,
+        "answer": answer
+    }).strip().upper()
+    return result.startswith("GROUNDED")
 
-    retrieved = retriever.invoke(question)
-    context_text = " ".join(d.page_content for d in retrieved)
+def ask_bot(question: str) -> dict:
+    if not classify_intent(question):
+        return {"answer": REFUSAL_MESSAGE, "sources": []}
 
-    if len(context_text.strip()) < 100:
-        return OUT_OF_SCOPE_RESPONSE
+    context, docs = retrieve_context(question)
+    special_hint = get_special_hint(question)
+    first_question = f"{question}\n\n{special_hint}" if special_hint else question
 
-    answer = rag_chain.invoke(question)
-    answer = strip_thinking(answer)
+    answer = strip_thinking(generate_answer(first_question, context))
 
-    if REFUSAL_PHRASE in answer and is_hr_related(question):
-        hint_question = (
-            f"{question}\n\n"
-            "(Note: Evaluate the context comprehensively. Pull all numbers, dates, ranges, and explicit values directly.)"
+    if REFUSAL_PHRASE in answer:
+        return {"answer": REFUSAL_MESSAGE, "sources": []}
+
+    if not check_grounding(question, context, answer):
+        fallback = (
+            f"{question}\n\nExtract only facts explicitly stated in the context. "
+            "Do not infer or add anything not directly written."
         )
-        answer = strip_thinking(rag_chain.invoke(hint_question))
+        if special_hint:
+            fallback += f"\n\n{special_hint}"
+        answer = strip_thinking(generate_answer(fallback, context))
+        if not check_grounding(question, context, answer):
+            return {"answer": REFUSAL_MESSAGE, "sources": []}
 
-    if retrieved:
-        sources = list({d.metadata.get("source", "HR Policy").split("/")[-1] for d in retrieved})
-        answer += f"\n\n📄 *Sources: {', '.join(sources)}*"
+    sources = list({d.metadata.get("source", "HR Policy").split("/")[-1] for d in docs})
+    return {"answer": answer, "sources": sources}
 
-    return answer
-
-
-
-# Chat UI
-# ---------------------------------------------------------------------------
+# ── Chat UI ──────────────────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -204,7 +235,10 @@ if question := st.chat_input("Ask an HR question..."):
 
     with st.chat_message("assistant"):
         with st.spinner("Searching HR policies..."):
-            answer = ask_bot(question)
-
+            result = ask_bot(question)
+            answer = result["answer"]
+            sources = result["sources"]
+            if sources:
+                answer += f"\n\n📄 *Sources: {', '.join(sources)}*"
         st.write(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
