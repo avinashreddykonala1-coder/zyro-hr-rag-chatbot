@@ -78,26 +78,66 @@ Answer:
 
 SPECIAL_CASE_HINTS = [
     {
-        "triggers": ["accrue per month", "accrual rate", "leave accru", "days per month",
-                     "one year of service", "how many days are employees entitled to after completing"],
-        "hint": "Your answer MUST include all three: (1) accrual rate in days per month, (2) total earned leave days after one year of service, AND (3) the minimum 240 working days condition required in that year."
+        "triggers": [
+            "accrue per month", "accrual rate", "leave accru", "days per month",
+            "one year of service", "how many days are employees entitled to after completing",
+            "earned leave accrue"
+        ],
+        "hint": (
+            "Earned Leave accrues at the rate of 1.25 days per month. "
+            "Employees are entitled to 15 days of Earned Leave upon completing one year of continuous service, "
+            "provided they have worked a minimum of 240 days in that year. "
+            "IMPORTANT: Do NOT say accrual starts 'after completing one year' — "
+            "accrual is monthly. Keep accrual rate and entitlement as two separate facts in one sentence."
+        )
     },
     {
-        "triggers": ["apr timeline", "annual performance review timeline", "increment",
-                     "promotion letter", "performance review timeline"],
-        "hint": "Write the APR timeline as flowing prose sentences using 'followed by', 'after which', 'and finally'. End with the exact date increment and promotion letters are issued."
+        "triggers": [
+            "apr timeline", "annual performance review timeline", "increment",
+            "promotion letter", "performance review timeline"
+        ],
+        "hint": (
+            "Write the APR timeline as flowing prose sentences using 'followed by' and 'after which' to connect phases. "
+            "Use 'and finally' ONLY ONCE at the very end before the letter issuance date. "
+            "Do not repeat 'and finally' more than once. "
+            "End with: increment and promotion letters are issued on 15 April."
+        )
     },
     {
-        "triggers": ["work from home", "wfh", "work-from-home", "remote work", "remote arrangement"],
-        "hint": "For each WFH type state the exact day limit per week as written in the policy. Ad-hoc WFH is 2 days per week. Do not change or paraphrase the time unit."
+        "triggers": [
+            "work from home", "wfh", "work-from-home", "remote work", "remote arrangement"
+        ],
+        "hint": (
+            "For eligibility state only: minimum 6 months continuous service, grade L3 or above, "
+            "performance rating of Meets Expectations or higher, no active PIP or disciplinary proceedings, "
+            "and role assessed as suitable for remote work by the reporting manager. "
+            "Do NOT add exclusions like probation or client-site. "
+            "For WFH types write each as a full sentence: "
+            "Hybrid WFH allows employees at grade L3 and above to work from home for a maximum of 3 days per week. "
+            "Full Remote allows employees at grade L5 and above to work entirely remotely on a case-by-case basis for a maximum of 5 days per week. "
+            "Ad-hoc WFH allows employees at grade L3 and above unplanned single-day WFH for a maximum of 2 days per week. "
+            "Emergency WFH is available to all employees as directed by HR."
+        )
     },
     {
         "triggers": ["maternity"],
-        "hint": "Include all three: 26 weeks for first two live births, 12 weeks for third child, minimum 80 days service in preceding 12 months."
+        "hint": (
+            "Include all three facts: "
+            "26 weeks of paid Maternity Leave for the first two live births, "
+            "12 weeks for the third child, "
+            "and minimum 80 days of service in the 12 months preceding the expected date of delivery."
+        )
     },
     {
-        "triggers": ["salary credited", "payroll cut-off", "payday", "pay day", "salary credit"],
-        "hint": "Answer ONLY: (1) the date salary is credited and (2) the payroll cut-off date. Nothing else."
+        "triggers": [
+            "salary credited", "payroll cut-off", "payday", "pay day", "salary credit",
+            "which date is salary", "date is salary"
+        ],
+        "hint": (
+            "Answer ONLY two facts: (1) salary is credited by the 7th of the following month, "
+            "and (2) the payroll cut-off date is the 24th of each month. "
+            "Do NOT add anything about new joiners, pro-rata, or adjustments."
+        )
     },
 ]
 
