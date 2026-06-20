@@ -97,7 +97,7 @@ SPECIAL_CASE_HINTS = [
     },
     {
         "triggers": ["salary credited", "payroll cut-off", "payday", "pay day", "salary credit"],
-        "hint": "Answer ONLY: (1) the date salary is credited and (2) the payroll cut-off date. Nothing else — no information about new joiners, pro-rata, or adjustments unless specifically asked."
+        "hint": "Answer ONLY: (1) the date salary is credited and (2) the payroll cut-off date. Nothing else."
     },
 ]
 
@@ -171,7 +171,8 @@ def retrieve_context(question: str):
 
 def generate_answer(question: str, context: str) -> str:
     chain = RAG_PROMPT | llm | StrOutputParser()
-    return chain.invoke({"context": context, "question": question})
+    raw = chain.invoke({"context": context, "question": question})
+    return strip_thinking(raw)
 
 def ask_bot(question: str) -> dict:
     if not classify_intent(question):
