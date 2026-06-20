@@ -56,16 +56,17 @@ IMPORTANT: "Acrux Dynamics" and "Zyro Dynamics" refer to the same company.
 Rules:
 1. Answer ONLY using the context provided below. Never use outside knowledge.
 2. Write in plain prose sentences only — no bullet points, no numbered lists, no bold (**), no headers, no tables.
-3. Answer exactly what was asked. Do not add disciplinary rules, IT procedures, or anything not directly asked.
+3. Answer exactly what was asked. Do not add extra clauses, edge cases, or anything not directly asked.
 4. Include every exact number, date, grade, Rs. value, and percentage that answers the question.
-5. For WFH types — one sentence per type covering: name, eligible grade, max days per week. Use the EXACT day limit and time unit as written in the policy.
+5. For WFH types — one sentence per type covering: name, eligible grade, max days per week.
 6. For notice periods — one sentence covering all grades using semicolons.
 7. For maternity leave — always include ALL three: 26 weeks (first two births), 12 weeks (third child), 80 days minimum service in the 12 months preceding delivery.
-8. For APR/performance review timeline — write as flowing prose sentences using "followed by", "after which", "and finally". Do NOT use semicolons or lists. End with the exact date increment and promotion letters are issued.
-9. For earned leave accrual — always include ALL three: accrual rate per month, total days after one year, AND the minimum 240 working days condition required in that year.
-10. If the context does not contain the answer, respond EXACTLY with:
+8. For APR/performance review timeline — write as flowing prose sentences using "followed by", "after which", "and finally". End with the exact date increment and promotion letters are issued.
+9. For earned leave accrual — always include ALL three: accrual rate per month, total days after one year, AND the minimum 240 working days condition.
+10. For salary/payroll questions — answer ONLY the date salary is credited and the payroll cut-off date. Do not add information about new joiners, pro-rata, or adjustments unless specifically asked.
+11. If the context does not contain the answer, respond EXACTLY with:
     "I'm sorry, I can only answer HR-related questions based on Zyro Dynamics policy documents."
-11. Never mention that something is missing from the context. Simply omit it.
+12. Never mention that something is missing from the context. Simply omit it.
 
 Context:
 {context}
@@ -75,34 +76,16 @@ Question: {question}
 Answer:
 """)
 
-GROUNDING_PROMPT = ChatPromptTemplate.from_template("""
-You are a fact-checker. Decide if the answer is fully supported by the context.
-
-Rules:
-- Every fact in answer found in context → reply GROUNDED
-- Any fact NOT in context → reply UNGROUNDED
-- Refusal message → reply GROUNDED
-
-Context:
-{context}
-
-Question: {question}
-
-Answer: {answer}
-
-Reply with ONLY one word: GROUNDED or UNGROUNDED
-""")
-
 SPECIAL_CASE_HINTS = [
     {
         "triggers": ["accrue per month", "accrual rate", "leave accru", "days per month",
                      "one year of service", "how many days are employees entitled to after completing"],
-        "hint": "Your answer MUST include all three: (1) accrual rate in days per month, (2) total earned leave days after one year of service, AND (3) the minimum 240 working days condition required in that year. Never omit any of these three."
+        "hint": "Your answer MUST include all three: (1) accrual rate in days per month, (2) total earned leave days after one year of service, AND (3) the minimum 240 working days condition required in that year."
     },
     {
         "triggers": ["apr timeline", "annual performance review timeline", "increment",
                      "promotion letter", "performance review timeline"],
-        "hint": "Write the APR timeline as flowing prose sentences using 'followed by', 'after which', 'and finally' — NOT as a semicolon list or numbered list. End with the exact date increment and promotion letters are issued."
+        "hint": "Write the APR timeline as flowing prose sentences using 'followed by', 'after which', 'and finally'. End with the exact date increment and promotion letters are issued."
     },
     {
         "triggers": ["work from home", "wfh", "work-from-home", "remote work", "remote arrangement"],
@@ -110,7 +93,11 @@ SPECIAL_CASE_HINTS = [
     },
     {
         "triggers": ["maternity"],
-        "hint": "Include all three facts: weeks for first two live births, weeks for third child, and minimum days of service required in preceding 12 months."
+        "hint": "Include all three: 26 weeks for first two live births, 12 weeks for third child, minimum 80 days service in preceding 12 months."
+    },
+    {
+        "triggers": ["salary credited", "payroll cut-off", "payday", "pay day", "salary credit"],
+        "hint": "Answer ONLY: (1) the date salary is credited and (2) the payroll cut-off date. Nothing else — no information about new joiners, pro-rata, or adjustments unless specifically asked."
     },
 ]
 
@@ -158,8 +145,8 @@ def build_rag():
     llm = ChatGroq(
         groq_api_key=st.secrets["GROQ_API_KEY"],
         model="qwen/qwen3-32b",
-        temperature=0.1,   # updated
-        max_tokens=512     # updated
+        temperature=0.1,
+        max_tokens=1024
     )
     return retriever, llm
 
@@ -173,7 +160,9 @@ def format_docs(docs):
 
 def classify_intent(question: str) -> bool:
     chain = INTENT_PROMPT | llm | StrOutputParser()
-    result = chain.invoke({"question": question}).strip().upper()
+    result = chain.invoke({"question": question})
+    result = re.sub(r'<think>.*?</think>', '', result, flags=re.DOTALL)
+    result = result.strip().upper()
     return result.startswith("YES")
 
 def retrieve_context(question: str):
@@ -184,29 +173,17 @@ def generate_answer(question: str, context: str) -> str:
     chain = RAG_PROMPT | llm | StrOutputParser()
     return chain.invoke({"context": context, "question": question})
 
-def check_grounding(question: str, context: str, answer: str) -> bool:
-    chain = GROUNDING_PROMPT | llm | StrOutputParser()
-    result = chain.invoke({
-        "context": context,
-        "question": question,
-        "answer": answer
-    }).strip().upper()
-    return result.startswith("GROUNDED")
-
 def ask_bot(question: str) -> dict:
     if not classify_intent(question):
         return {"answer": REFUSAL_MESSAGE, "sources": []}
 
     context, docs = retrieve_context(question)
     special_hint = get_special_hint(question)
-    first_question = f"{question}\n\n{special_hint}" if special_hint else question
+    full_question = f"{question}\n\n{special_hint}" if special_hint else question
 
-    answer = strip_thinking(generate_answer(first_question, context))
+    answer = strip_thinking(generate_answer(full_question, context))
 
-    if REFUSAL_PHRASE in answer:
-        return {"answer": REFUSAL_MESSAGE, "sources": []}
-
-    if not check_grounding(question, context, answer):
+    if REFUSAL_PHRASE in answer or len(answer.strip()) < 20:
         fallback = (
             f"{question}\n\nExtract only facts explicitly stated in the context. "
             "Do not infer or add anything not directly written."
@@ -214,8 +191,6 @@ def ask_bot(question: str) -> dict:
         if special_hint:
             fallback += f"\n\n{special_hint}"
         answer = strip_thinking(generate_answer(fallback, context))
-        if not check_grounding(question, context, answer):
-            return {"answer": REFUSAL_MESSAGE, "sources": []}
 
     sources = list({d.metadata.get("source", "HR Policy").split("/")[-1] for d in docs})
     return {"answer": answer, "sources": sources}
