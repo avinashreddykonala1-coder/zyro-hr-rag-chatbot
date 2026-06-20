@@ -143,7 +143,7 @@ def build_rag():
         search_kwargs={"k": 5, "fetch_k": 25, "lambda_mult": 0.5}
     )
     llm = ChatGroq(
-        groq_api_key=st.secrets["GROQ_API_KEY"],
+        groq_api_key=st.secrets.get("GROQ_API_KEY") or st.secrets.get("groq_api_key"),
         model="qwen/qwen3-32b",
         temperature=0.1,
         max_tokens=1024
