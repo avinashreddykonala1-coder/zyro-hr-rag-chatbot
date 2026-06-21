@@ -149,7 +149,12 @@ def get_special_hint(question: str) -> str:
     return ""
 
 def strip_thinking(text: str) -> str:
-    cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    cleaned = re.sub(
+        r'<think>.*?(</think>|$)',
+        '',
+        text,
+        flags=re.DOTALL | re.IGNORECASE
+    )
     cleaned = cleaned.replace('**', '')
     cleaned = re.sub(r'\n\d+\.\s+', ' ', cleaned)
     hedge_pattern = re.compile(
@@ -179,8 +184,8 @@ def build_rag():
     )
     vectorstore = FAISS.from_documents(chunks, embeddings)
     retriever = vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 5, "fetch_k": 25, "lambda_mult": 0.5}
+        search_type="similarity",
+        search_kwargs={"k": 8}
     )
     llm = ChatGroq(
         groq_api_key=st.secrets.get("GROQ_API_KEY") or st.secrets.get("groq_api_key"),
@@ -198,12 +203,6 @@ def format_docs(docs):
         for d in docs
     )
 
-def classify_intent(question: str) -> bool:
-    chain = INTENT_PROMPT | llm | StrOutputParser()
-    result = chain.invoke({"question": question})
-    result = re.sub(r'<think>.*?</think>', '', result, flags=re.DOTALL)
-    result = result.strip().upper()
-    return result.startswith("YES")
 
 def retrieve_context(question: str):
     docs = retriever.invoke(question)
@@ -215,10 +214,8 @@ def generate_answer(question: str, context: str) -> str:
     return strip_thinking(raw)
 
 def ask_bot(question: str) -> dict:
-    if not classify_intent(question):
-        return {"answer": REFUSAL_MESSAGE, "sources": []}
-
     context, docs = retrieve_context(question)
+
     special_hint = get_special_hint(question)
     full_question = f"{question}\n\n{special_hint}" if special_hint else question
 
@@ -229,11 +226,23 @@ def ask_bot(question: str) -> dict:
             f"{question}\n\nExtract only facts explicitly stated in the context. "
             "Do not infer or add anything not directly written."
         )
+
         if special_hint:
             fallback += f"\n\n{special_hint}"
+
         answer = strip_thinking(generate_answer(fallback, context))
 
-    sources = list({d.metadata.get("source", "HR Policy").split("/")[-1] for d in docs})
+    if "<think>" in answer.lower():
+        answer = REFUSAL_MESSAGE
+
+    if len(answer.strip()) < 10:
+        answer = REFUSAL_MESSAGE
+
+    sources = list({
+        d.metadata.get("source", "HR Policy").split("/")[-1]
+        for d in docs
+    })
+
     return {"answer": answer, "sources": sources}
 
 # ── Chat UI ──────────────────────────────────────────────────
