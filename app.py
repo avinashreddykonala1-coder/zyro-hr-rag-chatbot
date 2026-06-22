@@ -244,3 +244,26 @@ def ask_bot(question: str) -> dict:
     })
 
     return {"answer": answer, "sources": sources}
+
+# ── Chat UI ──────────────────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+
+if question := st.chat_input("Ask an HR question..."):
+    st.session_state.messages.append({"role": "user", "content": question})
+    with st.chat_message("user"):
+        st.write(question)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Searching HR policies..."):
+            result = ask_bot(question)
+            answer = result["answer"]
+            sources = result["sources"]
+            if sources:
+                answer += f"\n\n📄 *Sources: {', '.join(sources)}*"
+        st.write(answer)
+        st.session_state.messages.append({"role": "assistant", "content": answer})
