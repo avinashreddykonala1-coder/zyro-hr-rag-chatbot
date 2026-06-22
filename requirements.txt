@@ -10,5 +10,6 @@ pypdf
 sentence-transformers
 transformers
 torch
+torchvision
 groq
 tiktoken
