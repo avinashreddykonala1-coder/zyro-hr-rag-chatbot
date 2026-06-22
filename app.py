@@ -185,7 +185,7 @@ def build_rag():
     vectorstore = FAISS.from_documents(chunks, embeddings)
     retriever = vectorstore.as_retriever(
         search_type="similarity",
-        search_kwargs={"k": 8}
+        search_kwargs={"k": 12}
     )
     llm = ChatGroq(
         groq_api_key=st.secrets.get("GROQ_API_KEY") or st.secrets.get("groq_api_key"),
