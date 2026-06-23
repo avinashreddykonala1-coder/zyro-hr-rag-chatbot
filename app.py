@@ -214,23 +214,108 @@ def generate_answer(question: str, context: str) -> str:
     return strip_thinking(raw)
 
 def ask_bot(question: str) -> dict:
+
+    q = question.lower().strip()
+
+    # Greeting handling
+    if q in {
+        "hi",
+        "hello",
+        "hey",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "hi there",
+        "hello there"
+    }:
+        return {
+            "answer": (
+                "Hello! 👋\n\n"
+                "Welcome to the Acrux Dynamics HR Assistant.\n\n"
+                "I can help with leave policies, payroll, benefits, "
+                "work-from-home policies, performance reviews, onboarding, "
+                "and other HR-related questions.\n\n"
+                "How can I assist you today?"
+            ),
+            "sources": []
+        }
+
+    # Help / Introduction
+    if q in {
+        "who are you",
+        "what can you do",
+        "help",
+        "can you help me"
+    }:
+        return {
+            "answer": (
+                "I am the Acrux Dynamics HR Assistant. "
+                "I can help with leave policies, payroll, compensation, benefits, "
+                "work-from-home policies, performance reviews, onboarding, "
+                "separation policies, travel and expense policies, and other "
+                "HR-related information available in the company documents."
+            ),
+            "sources": []
+        }
+
+    # Thanks handling
+    if q in {
+        "thanks",
+        "thank you",
+        "thankyou",
+        "thanks a lot"
+    }:
+        return {
+            "answer": (
+                "You're welcome! 😊\n\n"
+                "If you have any questions about HR policies, leave, payroll, "
+                "benefits, WFH, performance reviews, or other employee-related "
+                "topics, feel free to ask."
+            ),
+            "sources": []
+        }
+
+    # Goodbye handling
+    if q in {
+        "bye",
+        "goodbye",
+        "see you",
+        "see you later"
+    }:
+        return {
+            "answer": (
+                "Goodbye! 👋\n\n"
+                "Feel free to return anytime if you need help with HR policies "
+                "or employee-related information."
+            ),
+            "sources": []
+        }
+
     context, docs = retrieve_context(question)
 
     special_hint = get_special_hint(question)
-    full_question = f"{question}\n\n{special_hint}" if special_hint else question
+    full_question = (
+        f"{question}\n\n{special_hint}"
+        if special_hint
+        else question
+    )
 
     answer = strip_thinking(generate_answer(full_question, context))
 
     if REFUSAL_PHRASE in answer or len(answer.strip()) < 20:
+
         fallback = (
-            f"{question}\n\nExtract only facts explicitly stated in the context. "
+            f"{question}\n\n"
+            "Extract only facts explicitly stated in the context. "
             "Do not infer or add anything not directly written."
         )
 
         if special_hint:
             fallback += f"\n\n{special_hint}"
 
-        answer = strip_thinking(generate_answer(fallback, context))
+        answer = strip_thinking(
+            generate_answer(fallback, context)
+        )
 
     if "<think>" in answer.lower():
         answer = REFUSAL_MESSAGE
@@ -243,8 +328,10 @@ def ask_bot(question: str) -> dict:
         for d in docs
     })
 
-    return {"answer": answer, "sources": sources}
-
+    return {
+        "answer": answer,
+        "sources": sources
+    }
 # ── Chat UI ──────────────────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
