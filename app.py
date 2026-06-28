@@ -69,11 +69,22 @@ THANKS — user is expressing gratitude. Examples: "thanks", "thank you", "thank
 
 GOODBYE — user is saying goodbye. Examples: "bye", "goodbye", "see you", "see you later", "take care", "cya".
 
-HR_QUESTION — user is asking about HR policies, leave, salary, benefits, work from home, performance, onboarding, conduct, travel, insurance, or any internal company policy topic. This includes ALL types of leave: earned leave, sick leave, casual leave, maternity leave, paternity leave, bereavement leave, compensatory off. "Casual leave" is a TYPE OF LEAVE and is always HR_QUESTION.
+HR_QUESTION — user is asking about HR policies, leave, salary, benefits, work from home, performance, onboarding, conduct, travel, insurance, or any internal company policy topic. This includes:
+- ALL types of leave: earned, sick, casual, maternity, paternity, bereavement, compensatory off
+- Compensation: CTC, salary range, grade levels, bonus targets, increments, pay grades
+- Benefits: health insurance, PF, gratuity, group medical insurance
+- Performance: PIP, APR, ratings, appraisals, promotions
+- Work arrangements: WFH, hybrid, remote work
+- Onboarding, probation, separation, notice periods
+- Code of conduct, POSH, disciplinary actions
+- Travel and expense reimbursements
 
-OUT_OF_SCOPE — user is asking about something completely unrelated to HR and not a greeting/thanks/goodbye. Examples: ESOP/stock options, company revenue/financials, product features, competitor comparisons, job applications for outsiders, recruitment process, policies of other companies like Zoho or Freshworks.
+OUT_OF_SCOPE — user is asking about something completely unrelated to HR and not a greeting/thanks/goodbye. Examples: ESOP/stock options/vesting schedules, company revenue/financials/profit/funding, product features, competitor comparisons, job applications for outsiders, recruitment process, policies of other companies like Zoho or Freshworks.
 
-IMPORTANT: Questions about ANY type of leave (casual, earned, sick, maternity, etc.) are ALWAYS HR_QUESTION.
+IMPORTANT:
+- Questions about CTC ranges, salary grades, bonus targets are ALWAYS HR_QUESTION
+- Questions about ANY type of leave are ALWAYS HR_QUESTION
+- ESOP, stock options, equity, vesting are ALWAYS OUT_OF_SCOPE
 
 Message: {question}
 
@@ -203,9 +214,22 @@ SPECIAL_CASE_HINTS = [
         )
     },
     {
+        "triggers": [
+            "sick leave", "consecutive days", "medical certificate",
+            "sick leave for more than"
+        ],
+        "hint": (
+            "Use capital letters for proper nouns: 'Medical Certificate' not 'medical certificate', "
+            "'Sick Leave' not 'sick leave'. "
+            "Structure: If an employee takes Sick Leave for more than 2 consecutive days, "
+            "a Medical Certificate from a registered medical practitioner is required "
+            "and must be submitted within 3 working days of returning to work."
+        )
+    },
+    {
         "triggers": ["casual leave", "cl ", "casual leaves"],
         "hint": (
-            "Casual Leave (CL) is credited at the start of each month and the annual entitlement is 8 days. "
+            "Casual Leave (CL) entitlement is 8 days per year. "
             "State this fact directly and concisely."
         )
     },
